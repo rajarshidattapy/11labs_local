@@ -1,6 +1,6 @@
 "use client";
 
-import { signOut } from "next-auth/react";
+import { useClerk } from "@clerk/nextjs";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { ReactNode, useEffect, useRef, useState } from "react";
@@ -15,6 +15,7 @@ import { isBoxedPrimitive } from "util/types";
 
 export default function Sidebar({ isMobile = false }: { isMobile?: boolean }) {
   const pathname = usePathname();
+  const { signOut } = useClerk();
   const [isPinned, setIsPinned] = useState(true);
   const [isHovered, setIsHovered] = useState(false);
   const [showAccountMenu, setShowAccountMenu] = useState(false);

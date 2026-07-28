@@ -1,17 +1,18 @@
 "use server";
 
+import { auth } from "@clerk/nextjs/server";
 import { revalidatePath } from "next/cache";
 import { inngest } from "~/inngest/client";
 import { getPresignedUrl, getUploadUrl } from "~/lib/s3";
-import { auth } from "~/server/auth";
-import { db } from "~/server/db";
+import { db, getOrCreateUser } from "~/server/db";
 import { ServiceType } from "~/types/services";
 
 export async function generateTextToSpeech(text: string, voice: string) {
-  const session = await auth();
-  if (!session?.user.id) {
+  const { userId } = await auth();
+  if (!userId) {
     throw new Error("User not authenticated");
   }
+  await getOrCreateUser(userId);
 
   const audioClipJob = await db.generatedAudioClip.create({
     data: {
@@ -19,7 +20,7 @@ export async function generateTextToSpeech(text: string, voice: string) {
       voice: voice,
       user: {
         connect: {
-          id: session.user.id,
+          id: userId,
         },
       },
       service: "styletts2",
@@ -30,13 +31,13 @@ export async function generateTextToSpeech(text: string, voice: string) {
     name: "generate.request",
     data: {
       audioClipId: audioClipJob.id,
-      userId: session.user.id,
+      userId: userId,
     },
   });
 
   return {
     audioId: audioClipJob.id,
-    shouldShowThrottleAlert: await shouldShowThrottleAlert(session.user.id),
+    shouldShowThrottleAlert: await shouldShowThrottleAlert(userId),
   };
 }
 
@@ -44,10 +45,11 @@ export async function generateSpeechToSpeech(
   originalVoiceS3Key: string,
   voice: string,
 ) {
-  const session = await auth();
-  if (!session?.user.id) {
+  const { userId } = await auth();
+  if (!userId) {
     throw new Error("User not authenticated");
   }
+  await getOrCreateUser(userId);
 
   const audioClipJob = await db.generatedAudioClip.create({
     data: {
@@ -55,7 +57,7 @@ export async function generateSpeechToSpeech(
       voice: voice,
       user: {
         connect: {
-          id: session.user.id,
+          id: userId,
         },
       },
       service: "seedvc",
@@ -66,28 +68,29 @@ export async function generateSpeechToSpeech(
     name: "generate.request",
     data: {
       audioClipId: audioClipJob.id,
-      userId: session.user.id,
+      userId: userId,
     },
   });
 
   return {
     audioId: audioClipJob.id,
-    shouldShowThrottleAlert: await shouldShowThrottleAlert(session.user.id),
+    shouldShowThrottleAlert: await shouldShowThrottleAlert(userId),
   };
 }
 
 export async function generateSoundEffect(prompt: string) {
-  const session = await auth();
-  if (!session?.user.id) {
+  const { userId } = await auth();
+  if (!userId) {
     throw new Error("User not authenticated");
   }
+  await getOrCreateUser(userId);
 
   const audioClipJob = await db.generatedAudioClip.create({
     data: {
       text: prompt,
       user: {
         connect: {
-          id: session.user.id,
+          id: userId,
         },
       },
       service: "make-an-audio",
@@ -98,13 +101,13 @@ export async function generateSoundEffect(prompt: string) {
     name: "generate.request",
     data: {
       audioClipId: audioClipJob.id,
-      userId: session.user.id,
+      userId: userId,
     },
   });
 
   return {
     audioId: audioClipJob.id,
-    shouldShowThrottleAlert: await shouldShowThrottleAlert(session.user.id),
+    shouldShowThrottleAlert: await shouldShowThrottleAlert(userId),
   };
 }
 
@@ -127,10 +130,10 @@ const shouldShowThrottleAlert = async (userId: string) => {
 export async function generationStatus(
   audioId: string,
 ): Promise<{ success: boolean; audioUrl: string | null }> {
-  const session = await auth();
+  const { userId } = await auth();
 
   const audioClip = await db.generatedAudioClip.findFirstOrThrow({
-    where: { id: audioId, userId: session?.user.id },
+    where: { id: audioId, userId: userId ?? undefined },
     select: {
       id: true,
       failed: true,
@@ -173,8 +176,8 @@ const revalidateBasedOnService = async (service: ServiceType) => {
 };
 
 export async function generateUploadUrl(fileType: string) {
-  const session = await auth();
-  if (!session?.user.id) {
+  const { userId } = await auth();
+  if (!userId) {
     throw new Error("User not authenticated");
   }
 

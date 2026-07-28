@@ -1,4 +1,4 @@
-import { auth } from "~/server/auth";
+import { auth } from "@clerk/nextjs/server";
 import { db } from "~/server/db";
 import { getPresignedUrl } from "~/lib/s3";
 import { ServiceType } from "~/types/services";
@@ -16,16 +16,16 @@ export type HistoryItem = {
 export async function getHistoryItems(
   service: ServiceType,
 ): Promise<HistoryItem[]> {
-  const session = await auth();
+  const { userId } = await auth();
 
-  if (!session?.user.id) {
+  if (!userId) {
     return [];
   }
 
   try {
     const audioClips = await db.generatedAudioClip.findMany({
       where: {
-        userId: session.user.id,
+        userId: userId,
         s3Key: { not: null },
         service: service,
       },
