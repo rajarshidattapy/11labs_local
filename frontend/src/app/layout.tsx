@@ -6,8 +6,8 @@ import { Inter } from "next/font/google";
 import { Toaster } from "react-hot-toast";
 
 export const metadata: Metadata = {
-  title: "TwelveLabs",
-  description: "TwelveLabs",
+  title: "11labs",
+  description: "Local Elevenlabs clone for text-to-speech and speech-to-text",
   icons: [{ rel: "icon", url: "/favicon.ico" }],
 };
 

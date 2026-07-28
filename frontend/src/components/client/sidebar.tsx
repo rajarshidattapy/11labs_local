@@ -53,7 +53,7 @@ export default function Sidebar({ isMobile = false }: { isMobile?: boolean }) {
     >
       <div className="flex items-center justify-between">
         <h1 className={`text-xl font-bold ${!isExpanded && "hidden"}`}>
-          12TwelveLabs
+          ElevenLabs local
         </h1>
         {!isMobile && (
           <button

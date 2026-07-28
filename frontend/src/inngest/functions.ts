@@ -2,6 +2,13 @@ import { db } from "~/server/db";
 import { inngest } from "./client";
 import { env } from "~/env";
 
+// Preset voice names picked in the UI don't carry actual audio - TTS/api.py needs a
+// real reference clip to clone. Map each preset to a pre-uploaded reference S3 key.
+const VOICE_PROMPT_S3_KEYS: Record<string, string> = {
+  andreas: "voice-prompts/andreas.wav",
+  woman: "voice-prompts/woman.wav",
+};
+
 export const aiGenerationFunction = inngest.createFunction(
   {
     id: "genrate-audio-clip",
@@ -34,35 +41,45 @@ export const aiGenerationFunction = inngest.createFunction(
       let response: Response | null = null;
 
       if (audioClip.service === "styletts2") {
-        response = await fetch(env.STYLETTS2_API_ROUTE + "/generate", {
+        const promptAudioS3Key = audioClip.voice
+          ? VOICE_PROMPT_S3_KEYS[audioClip.voice]
+          : undefined;
+
+        if (!promptAudioS3Key) {
+          await db.generatedAudioClip.update({
+            where: { id: audioClip.id },
+            data: { failed: true },
+          });
+          throw new Error(
+            `No reference audio configured for voice "${audioClip.voice}"`,
+          );
+        }
+
+        response = await fetch(env.TTS_API_ROUTE + "/generate", {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
-            Authorization: env.BACKEND_API_KEY,
+            Authorization: env.BACKEND_API_KEY ?? "",
           },
           body: JSON.stringify({
             text: audioClip.text,
-            target_voice: audioClip.voice,
+            prompt_audio_s3_key: promptAudioS3Key,
           }),
         });
       } else if (audioClip.service === "seedvc") {
-        response = await fetch(env.SEED_VC_API_ROUTE + "/convert", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: env.BACKEND_API_KEY,
-          },
-          body: JSON.stringify({
-            source_audio_key: audioClip.originalVoiceS3Key,
-            target_voice: audioClip.voice,
-          }),
+        await db.generatedAudioClip.update({
+          where: { id: audioClip.id },
+          data: { failed: true },
         });
+        throw new Error(
+          "Speech-to-speech is not available: seed-vc has no backend service",
+        );
       } else if (audioClip.service === "make-an-audio") {
-        response = await fetch(env.MAKE_AN_AUDIO_API_ROUTE + "/generate", {
+        response = await fetch(env.SOUND_GENERATOR_API_ROUTE + "/generate", {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
-            Authorization: env.BACKEND_API_KEY,
+            Authorization: env.BACKEND_API_KEY ?? "",
           },
           body: JSON.stringify({
             prompt: audioClip.text,
