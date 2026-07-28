@@ -1,0 +1,18 @@
+FROM nvidia/cuda:12.3.2-cudnn9-runtime-ubuntu22.04
+
+WORKDIR /app
+
+RUN apt-get update -y && apt-get install -y python3-pip && rm -rf /var/lib/apt/lists/*
+
+RUN pip3 install faster-whisper fastapi uvicorn boto3
+
+COPY api.py .
+
+ENV AWS_REGION=us-east-1
+ENV S3_BUCKET=elevenlabs-clone
+ENV API_KEY=12345
+ENV WHISPER_MODEL_SIZE=base
+
+EXPOSE 8000
+
+CMD ["uvicorn", "api:app", "--host", "0.0.0.0", "--port", "8000"]

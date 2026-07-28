@@ -1,0 +1,29 @@
+FROM pytorch/pytorch:2.1.0-cuda11.8-cudnn8-runtime
+
+WORKDIR /app
+
+ENV DEBIAN_FRONTEND=noninteractive
+ENV TZ=Etc/UTC
+
+RUN apt-get update && apt-get install -y \
+    build-essential \
+    git \
+    libsndfile1 \
+    && rm -rf /var/lib/apt/lists/*
+
+COPY requirements.txt .
+RUN pip install --find-links https://k2-fsa.github.io/icefall/piper_phonemize.html -r requirements.txt
+RUN pip install fastapi uvicorn boto3
+
+COPY zipvoice ./zipvoice
+COPY api.py .
+
+ENV PYTHONPATH=/app
+ENV AWS_REGION=us-east-1
+ENV S3_BUCKET=elevenlabs-clone
+ENV S3_PREFIX=tts-outputs
+ENV API_KEY=12345
+
+EXPOSE 8000
+
+CMD ["uvicorn", "api:app", "--host", "0.0.0.0", "--port", "8000"]

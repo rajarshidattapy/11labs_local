@@ -1,8 +1,10 @@
 version: "3.8"
 
 services:
-  styletts2-api:
-    image: ecreimagehere
+  tts-api:
+    build:
+      context: ./TTS
+      dockerfile: Dockerfile.api
     ports:
       - "8000:8000"
     restart: unless-stopped
@@ -14,8 +16,10 @@ services:
               count: 1
               capabilities: [gpu]
 
-  seedvc-api:
-    image: ecreimagehere
+  stt-api:
+    build:
+      context: ./STT
+      dockerfile: Dockerfile.api
     ports:
       - "8001:8000"
     restart: unless-stopped
@@ -27,8 +31,10 @@ services:
               count: 1
               capabilities: [gpu]
 
-  make-an-audio-api:
-    image: ecreimagehere
+  sound-generator-api:
+    build:
+      context: ./sound_generator
+      dockerfile: Dockerfile.api
     ports:
       - "8002:8000"
     restart: unless-stopped
