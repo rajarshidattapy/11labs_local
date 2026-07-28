@@ -12,14 +12,14 @@ export const env = createEnv({
     NODE_ENV: z
       .enum(["development", "test", "production"])
       .default("development"),
-    AWS_ACCESS_KEY_ID: z.string(),
-    AWS_SECRET_ACCESS_KEY: z.string(),
-    AWS_REGION: z.string(),
-    S3_BUCKET_NAME: z.string(),
-    BACKEND_API_KEY: z.string(),
-    STYLETTS2_API_ROUTE: z.string(),
-    SEED_VC_API_ROUTE: z.string(),
-    MAKE_AN_AUDIO_API_ROUTE: z.string(),
+    AWS_ACCESS_KEY_ID: z.string().optional(),
+    AWS_SECRET_ACCESS_KEY: z.string().optional(),
+    AWS_REGION: z.string().optional(),
+    S3_BUCKET_NAME: z.string().optional(),
+    BACKEND_API_KEY: z.string().optional(),
+    STYLETTS2_API_ROUTE: z.string().optional(),
+    SEED_VC_API_ROUTE: z.string().optional(),
+    MAKE_AN_AUDIO_API_ROUTE: z.string().optional(),
   },
 
   /**
