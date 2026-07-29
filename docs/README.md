@@ -13,7 +13,7 @@ Self-hosted ElevenLabs-style audio AI suite: text-to-speech, voice conversion, a
 ## Stack
 
 - `frontend/` — Next.js 15 (App Router) + Prisma/SQLite + Clerk + Inngest
-- `backend/` — three GPU inference services (TTS, STT/Seed-VC, sound_generator), each a FastAPI app in its own Docker image
+- `backend/` — three GPU inference services (TTS, STT, sound_generator), each a FastAPI app in its own Docker image
 
 ## Setup
 
