@@ -4,12 +4,11 @@ WORKDIR /app
 
 RUN apt-get update -y && apt-get install -y python3-pip && rm -rf /var/lib/apt/lists/*
 
-RUN pip3 install faster-whisper fastapi uvicorn boto3
+RUN pip3 install faster-whisper fastapi uvicorn
 
 COPY api.py .
 
-ENV AWS_REGION=us-east-1
-ENV S3_BUCKET=elevenlabs-clone
+ENV STORAGE_DIR=/app/storage
 ENV API_KEY=12345
 ENV WHISPER_MODEL_SIZE=base
 

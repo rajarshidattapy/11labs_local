@@ -18,7 +18,6 @@ ftfy
 pytorch-lightning
 torchmetrics
 -e git+https://github.com/CompVis/taming-transformers.git@master#egg=taming-transformers
-boto3
 fastapi
 pydantic
 uvicorn

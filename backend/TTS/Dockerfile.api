@@ -13,15 +13,14 @@ RUN apt-get update && apt-get install -y \
 
 COPY requirements.txt .
 RUN pip install --find-links https://k2-fsa.github.io/icefall/piper_phonemize.html -r requirements.txt
-RUN pip install fastapi uvicorn boto3
+RUN pip install fastapi uvicorn
 
 COPY zipvoice ./zipvoice
 COPY api.py .
 
 ENV PYTHONPATH=/app
-ENV AWS_REGION=us-east-1
-ENV S3_BUCKET=elevenlabs-clone
-ENV S3_PREFIX=tts-outputs
+ENV STORAGE_DIR=/app/storage
+ENV PUBLIC_BASE_URL=http://localhost:8000
 ENV API_KEY=12345
 
 EXPOSE 8000

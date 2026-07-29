@@ -3,11 +3,11 @@ import os
 import uuid
 from contextlib import asynccontextmanager
 
-import boto3
 import torch
 import torchaudio
 from fastapi import Depends, FastAPI, Header, HTTPException
 from fastapi.security import APIKeyHeader
+from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
 from zipvoice.luxvoice import LuxTTS
@@ -22,6 +22,13 @@ SAMPLE_RATE = 48000
 lux_tts: LuxTTS | None = None
 API_KEY = os.getenv("API_KEY")
 
+STORAGE_DIR = os.getenv("STORAGE_DIR", "./storage")
+PROMPTS_DIR = os.path.join(STORAGE_DIR, "voice-prompts")
+OUTPUTS_DIR = os.path.join(STORAGE_DIR, "tts-outputs")
+PUBLIC_BASE_URL = os.getenv("PUBLIC_BASE_URL", "http://localhost:8000")
+os.makedirs(PROMPTS_DIR, exist_ok=True)
+os.makedirs(OUTPUTS_DIR, exist_ok=True)
+
 api_key_header = APIKeyHeader(name="Authorization", auto_error=False)
 
 
@@ -32,21 +39,6 @@ async def verify_api_key(authorization: str = Header(None)):
     if token != API_KEY:
         raise HTTPException(status_code=401, detail="Invalid API key")
     return token
-
-
-def get_s3_client():
-    client_kwargs = {"region_name": os.getenv("AWS_REGION", "us-east-1")}
-    if os.getenv("AWS_ACCESS_KEY_ID") and os.getenv("AWS_SECRET_ACCESS_KEY"):
-        client_kwargs.update({
-            "aws_access_key_id": os.getenv("AWS_ACCESS_KEY_ID"),
-            "aws_secret_access_key": os.getenv("AWS_SECRET_ACCESS_KEY"),
-        })
-    return boto3.client("s3", **client_kwargs)
-
-
-s3_client = get_s3_client()
-S3_PREFIX = os.getenv("S3_PREFIX", "tts-outputs")
-S3_BUCKET = os.getenv("S3_BUCKET", "elevenlabs-clone")
 
 
 @asynccontextmanager
@@ -60,11 +52,12 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(title="TTS API", lifespan=lifespan)
+app.mount("/files", StaticFiles(directory=STORAGE_DIR), name="files")
 
 
 class GenerateRequest(BaseModel):
     text: str
-    prompt_audio_s3_key: str
+    prompt_audio_key: str
     num_steps: int = 4
     guidance_scale: float = 3.0
     t_shift: float = 0.5
@@ -76,13 +69,14 @@ async def generate_speech(request: GenerateRequest):
     if not lux_tts:
         raise HTTPException(status_code=500, detail="Model not loaded")
 
-    prompt_path = f"/tmp/{uuid.uuid4()}.wav"
-    output_filename = f"{uuid.uuid4()}.wav"
-    local_path = f"/tmp/{output_filename}"
+    prompt_path = os.path.join(STORAGE_DIR, request.prompt_audio_key)
+    if not os.path.isfile(prompt_path):
+        raise HTTPException(status_code=404, detail="Reference audio not found")
+
+    output_key = f"tts-outputs/{uuid.uuid4()}.wav"
+    output_path = os.path.join(STORAGE_DIR, output_key)
 
     try:
-        s3_client.download_file(S3_BUCKET, request.prompt_audio_s3_key, prompt_path)
-
         encode_dict = lux_tts.encode_prompt(prompt_path)
         wav = lux_tts.generate_speech(
             request.text,
@@ -93,22 +87,12 @@ async def generate_speech(request: GenerateRequest):
             speed=request.speed,
         )
 
-        torchaudio.save(local_path, wav if wav.ndim == 2 else wav.unsqueeze(0), sample_rate=SAMPLE_RATE)
+        torchaudio.save(output_path, wav if wav.ndim == 2 else wav.unsqueeze(0), sample_rate=SAMPLE_RATE)
 
-        s3_key = f"{S3_PREFIX}/{output_filename}"
-        s3_client.upload_file(local_path, S3_BUCKET, s3_key)
-        presigned_url = s3_client.generate_presigned_url(
-            "get_object", Params={"Bucket": S3_BUCKET, "Key": s3_key}, ExpiresIn=3600
-        )
-
-        return {"audio_url": presigned_url, "s3_key": s3_key}
+        return {"audio_url": f"{PUBLIC_BASE_URL}/files/{output_key}", "file_key": output_key}
     except Exception as e:
         logger.error(f"Error generating speech: {e}")
         raise HTTPException(status_code=500, detail="Error generating speech")
-    finally:
-        for path in (prompt_path, local_path):
-            if os.path.exists(path):
-                os.remove(path)
 
 
 @app.get("/health", dependencies=[Depends(verify_api_key)])

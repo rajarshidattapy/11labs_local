@@ -3,7 +3,8 @@ import { inngest } from "./client";
 import { env } from "~/env";
 
 // Preset voice names picked in the UI don't carry actual audio - TTS/api.py needs a
-// real reference clip to clone. Map each preset to a pre-uploaded reference audio key.
+// real reference clip to clone. Map each preset to its file key under the TTS
+// service's local storage dir (backend/TTS/storage/voice-prompts/*.wav).
 const VOICE_PROMPT_KEYS: Record<string, string> = {
   andreas: "voice-prompts/andreas.wav",
   woman: "voice-prompts/woman.wav",
@@ -62,7 +63,7 @@ export const aiGenerationFunction = inngest.createFunction(
           },
           body: JSON.stringify({
             text: audioClip.text,
-            prompt_audio_s3_key: promptAudioKey,
+            prompt_audio_key: promptAudioKey,
           }),
         });
       } else if (audioClip.service === "seedvc") {

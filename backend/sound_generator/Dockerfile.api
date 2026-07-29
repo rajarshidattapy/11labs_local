@@ -24,9 +24,8 @@ COPY useful_ckpts ./useful_ckpts
 
 ENV PYTHONPATH=/app
 
-ENV AWS_REGION=us-east-1
-ENV S3_BUCKET=elevenlabs-clone
-ENV S3_PREFIX=make-an-audio-outputs
+ENV STORAGE_DIR=/app/storage
+ENV PUBLIC_BASE_URL=http://localhost:8002
 ENV API_KEY=12345
 
 EXPOSE 8000

@@ -2,13 +2,11 @@ import logging
 import os
 import uuid
 from contextlib import asynccontextmanager
-from tempfile import NamedTemporaryFile
 
-import boto3
 import torch
-import torchaudio
-from fastapi import BackgroundTasks, Depends, FastAPI, Header, HTTPException
+from fastapi import Depends, FastAPI, Header, HTTPException
 from fastapi.security import APIKeyHeader
+from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
 from gen_wav import SAMPLE_RATE, gen_wav, initialize_model
@@ -23,6 +21,11 @@ sampler = None
 vocoder = None
 API_KEY = os.getenv("API_KEY")
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
+
+STORAGE_DIR = os.getenv("STORAGE_DIR", "./storage")
+OUTPUTS_DIR = os.path.join(STORAGE_DIR, "make-an-audio-outputs")
+PUBLIC_BASE_URL = os.getenv("PUBLIC_BASE_URL", "http://localhost:8002")
+os.makedirs(OUTPUTS_DIR, exist_ok=True)
 
 api_key_header = APIKeyHeader(name="Authorization", auto_error=False)
 
@@ -42,24 +45,6 @@ async def verify_api_key(authorization: str = Header(None)):
         raise HTTPException(status_code=401, detail="Invalid API key")
 
     return token
-
-
-def get_s3_client():
-    client_kwargs = {'region_name': os.getenv("AWS_REGION", "us-east-1")}
-
-    if os.getenv("AWS_ACCESS_KEY_ID") and os.getenv("AWS_SECRET_ACCESS_KEY"):
-        client_kwargs.update({
-            'aws_access_key_id': os.getenv("AWS_ACCESS_KEY_ID"),
-            'aws_secret_access_key': os.getenv("AWS_SECRET_ACCESS_KEY")
-        })
-
-    return boto3.client('s3', **client_kwargs)
-
-
-s3_client = get_s3_client()
-
-S3_PREFIX = os.getenv("S3_PREFIX", "make-an-audio-outputs")
-S3_BUCKET = os.getenv("S3_BUCKET", "elevenlabs-clone")
 
 
 @asynccontextmanager
@@ -82,6 +67,7 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(title="Make-an-Audio API",
               lifespan=lifespan)
+app.mount("/files", StaticFiles(directory=STORAGE_DIR), name="files")
 
 
 class GenerateRequest(BaseModel):
@@ -89,7 +75,7 @@ class GenerateRequest(BaseModel):
 
 
 @app.post("/generate", dependencies=[Depends(verify_api_key)])
-async def generate_speech(request: GenerateRequest, background_tasks: BackgroundTasks):
+async def generate_speech(request: GenerateRequest):
     if not sampler or not vocoder:
         raise HTTPException(status_code=500, detail="Models not loaded")
 
@@ -99,28 +85,14 @@ async def generate_speech(request: GenerateRequest, background_tasks: Background
 
         audio = wav_list[0]
 
-        # Generate a unique filename
-        audio_id = str(uuid.uuid4())
-        output_filename = f"{audio_id}.wav"
-        local_path = f"/tmp/{output_filename}"
+        output_key = f"make-an-audio-outputs/{uuid.uuid4()}.wav"
+        output_path = os.path.join(STORAGE_DIR, output_key)
 
-        sf.write(local_path, audio, samplerate=SAMPLE_RATE)
-
-        # Upload to S3
-        s3_key = f"{S3_PREFIX}/{output_filename}"
-        s3_client.upload_file(local_path, S3_BUCKET, s3_key)
-
-        presigned_url = s3_client.generate_presigned_url(
-            'get_object',
-            Params={'Bucket': S3_BUCKET, 'Key': s3_key},
-            ExpiresIn=3600
-        )
-
-        background_tasks.add_task(os.remove, local_path)
+        sf.write(output_path, audio, samplerate=SAMPLE_RATE)
 
         return {
-            "audio_url": presigned_url,
-            "s3_key": s3_key
+            "audio_url": f"{PUBLIC_BASE_URL}/files/{output_key}",
+            "file_key": output_key,
         }
     except Exception as e:
         logger.error(f"Error generating audio: {e}")
