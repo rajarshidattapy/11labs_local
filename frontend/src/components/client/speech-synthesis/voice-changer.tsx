@@ -6,7 +6,6 @@ import toast from "react-hot-toast";
 import { FaUpload } from "react-icons/fa";
 import {
   generateSpeechToSpeech,
-  generateUploadUrl,
   generationStatus,
 } from "~/actions/generate-speech";
 import { GenerateButton } from "~/components/client/generate-button";
@@ -54,22 +53,7 @@ export function VoiceChanger({
     try {
       setIsLoading(true);
 
-      const { uploadUrl, s3Key } = await generateUploadUrl(file.type);
-
-      const uploadResponse = await fetch(uploadUrl, {
-        method: "PUT",
-        body: file,
-        headers: {
-          "Content-Type": file.type,
-        },
-      });
-
-      if (!uploadResponse.ok) {
-        throw new Error("Failed ot upload file to storage");
-      }
-
       const { audioId, shouldShowThrottleAlert } = await generateSpeechToSpeech(
-        s3Key,
         selectedVoice.id,
       );
 
