@@ -12,10 +12,6 @@ export const env = createEnv({
     NODE_ENV: z
       .enum(["development", "test", "production"])
       .default("development"),
-    AWS_ACCESS_KEY_ID: z.string().optional(),
-    AWS_SECRET_ACCESS_KEY: z.string().optional(),
-    AWS_REGION: z.string().optional(),
-    S3_BUCKET_NAME: z.string().optional(),
     BACKEND_API_KEY: z.string().optional(),
     TTS_API_ROUTE: z.string().optional(),
     SOUND_GENERATOR_API_ROUTE: z.string().optional(),
@@ -40,10 +36,6 @@ export const env = createEnv({
       process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY,
     DATABASE_URL: process.env.DATABASE_URL,
     NODE_ENV: process.env.NODE_ENV,
-    AWS_ACCESS_KEY_ID: process.env.AWS_ACCESS_KEY_ID,
-    AWS_SECRET_ACCESS_KEY: process.env.AWS_SECRET_ACCESS_KEY,
-    AWS_REGION: process.env.AWS_REGION,
-    S3_BUCKET_NAME: process.env.S3_BUCKET_NAME,
     BACKEND_API_KEY: process.env.BACKEND_API_KEY,
     TTS_API_ROUTE: process.env.TTS_API_ROUTE,
     SOUND_GENERATOR_API_ROUTE: process.env.SOUND_GENERATOR_API_ROUTE,

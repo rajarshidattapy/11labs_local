@@ -3,7 +3,6 @@
 import { auth } from "@clerk/nextjs/server";
 import { revalidatePath } from "next/cache";
 import { inngest } from "~/inngest/client";
-import { getPresignedUrl, getUploadUrl } from "~/lib/s3";
 import { db, getOrCreateUser } from "~/server/db";
 import { ServiceType } from "~/types/services";
 
@@ -41,10 +40,7 @@ export async function generateTextToSpeech(text: string, voice: string) {
   };
 }
 
-export async function generateSpeechToSpeech(
-  originalVoiceS3Key: string,
-  voice: string,
-) {
+export async function generateSpeechToSpeech(voice: string) {
   const { userId } = await auth();
   if (!userId) {
     throw new Error("User not authenticated");
@@ -53,7 +49,6 @@ export async function generateSpeechToSpeech(
 
   const audioClipJob = await db.generatedAudioClip.create({
     data: {
-      originalVoiceS3Key: originalVoiceS3Key,
       voice: voice,
       user: {
         connect: {
@@ -137,7 +132,7 @@ export async function generationStatus(
     select: {
       id: true,
       failed: true,
-      s3Key: true,
+      audioUrl: true,
       service: true,
     },
   });
@@ -147,11 +142,11 @@ export async function generationStatus(
     return { success: false, audioUrl: null };
   }
 
-  if (audioClip.s3Key) {
+  if (audioClip.audioUrl) {
     revalidateBasedOnService(audioClip.service as ServiceType);
     return {
       success: true,
-      audioUrl: await getPresignedUrl({ key: audioClip.s3Key }),
+      audioUrl: audioClip.audioUrl,
     };
   }
 
@@ -174,12 +169,3 @@ const revalidateBasedOnService = async (service: ServiceType) => {
       break;
   }
 };
-
-export async function generateUploadUrl(fileType: string) {
-  const { userId } = await auth();
-  if (!userId) {
-    throw new Error("User not authenticated");
-  }
-
-  return await getUploadUrl(fileType);
-}

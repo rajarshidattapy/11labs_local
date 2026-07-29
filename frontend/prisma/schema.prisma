@@ -38,8 +38,7 @@ model GeneratedAudioClip {
     userId  String
     text    String?
     voice String?
-    originalVoiceS3Key String?
-    s3Key String?
+    audioUrl String?
     failed Boolean @default(false)
     createdAt DateTime @default(now())
     service String

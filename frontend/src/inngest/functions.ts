@@ -3,8 +3,8 @@ import { inngest } from "./client";
 import { env } from "~/env";
 
 // Preset voice names picked in the UI don't carry actual audio - TTS/api.py needs a
-// real reference clip to clone. Map each preset to a pre-uploaded reference S3 key.
-const VOICE_PROMPT_S3_KEYS: Record<string, string> = {
+// real reference clip to clone. Map each preset to a pre-uploaded reference audio key.
+const VOICE_PROMPT_KEYS: Record<string, string> = {
   andreas: "voice-prompts/andreas.wav",
   woman: "voice-prompts/woman.wav",
 };
@@ -32,7 +32,6 @@ export const aiGenerationFunction = inngest.createFunction(
           voice: true,
           userId: true,
           service: true,
-          originalVoiceS3Key: true,
         },
       });
     });
@@ -41,11 +40,11 @@ export const aiGenerationFunction = inngest.createFunction(
       let response: Response | null = null;
 
       if (audioClip.service === "styletts2") {
-        const promptAudioS3Key = audioClip.voice
-          ? VOICE_PROMPT_S3_KEYS[audioClip.voice]
+        const promptAudioKey = audioClip.voice
+          ? VOICE_PROMPT_KEYS[audioClip.voice]
           : undefined;
 
-        if (!promptAudioS3Key) {
+        if (!promptAudioKey) {
           await db.generatedAudioClip.update({
             where: { id: audioClip.id },
             data: { failed: true },
@@ -63,7 +62,7 @@ export const aiGenerationFunction = inngest.createFunction(
           },
           body: JSON.stringify({
             text: audioClip.text,
-            prompt_audio_s3_key: promptAudioS3Key,
+            prompt_audio_s3_key: promptAudioKey,
           }),
         });
       } else if (audioClip.service === "seedvc") {
@@ -102,14 +101,14 @@ export const aiGenerationFunction = inngest.createFunction(
         throw new Error("API error: " + response.statusText);
       }
 
-      return response.json() as Promise<{ audio_url: string; s3_key: string }>;
+      return response.json() as Promise<{ audio_url: string }>;
     });
 
     const history = await step.run("save-to-history", async () => {
       return await db.generatedAudioClip.update({
         where: { id: audioClip.id },
         data: {
-          s3Key: result.s3_key,
+          audioUrl: result.audio_url,
         },
       });
     });
